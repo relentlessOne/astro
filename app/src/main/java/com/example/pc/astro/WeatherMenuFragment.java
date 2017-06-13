@@ -20,7 +20,7 @@ public class WeatherMenuFragment extends Fragment {
     public Button refresh;
     public Button city;
     public Button fav;
-    public TextView cityName;
+
 
     WeatherMenuListener WeatherMenuCommander;
 
@@ -46,7 +46,7 @@ public class WeatherMenuFragment extends Fragment {
         fav = (Button) view.findViewById(R.id.fav);
         refresh = (Button) view.findViewById(R.id.refresh);
         city = (Button) view.findViewById(R.id.city);
-        cityName = (TextView) view.findViewById(R.id.cityName);
+
 
         refresh.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {

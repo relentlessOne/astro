@@ -58,7 +58,47 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     tools:layout="@layout/sun" />
+
             </LinearLayout>
+
+            <fragment
+                android:id="@+id/weatherMenu"
+                android:name="com.example.pc.astro.WeatherMenuFragment"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                tools:layout="@layout/weather_menu" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="horizontal">
+
+                <fragment
+                    android:id="@+id/addInfo"
+                    android:name="com.example.pc.astro.AdditionalInfoFragment"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    tools:layout="@layout/additional_info" />
+
+                <fragment
+                    android:id="@+id/cityInfo"
+                    android:name="com.example.pc.astro.CityInfoFragment"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    tools:layout="@layout/city_info" />
+
+            </LinearLayout>
+
+            <fragment
+                android:id="@+id/ff"
+                android:name="com.example.pc.astro.FutureFragment"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                tools:layout="@layout/future" />
 
         </LinearLayout>
 

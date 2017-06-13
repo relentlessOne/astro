@@ -3,6 +3,7 @@ package com.example.pc.astro;
 
 import android.content.Context;
 import android.content.DialogInterface;
+import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Environment;
@@ -13,10 +14,12 @@ import android.os.Bundle;
 import android.text.InputType;
 import android.text.format.DateFormat;
 import android.util.Xml;
+import android.view.Gravity;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -25,6 +28,7 @@ import android.widget.Toast;
 
 import com.loopj.android.http.AsyncHttpClient;
 import com.loopj.android.http.AsyncHttpResponseHandler;
+import com.squareup.picasso.Picasso;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -41,6 +45,7 @@ import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Iterator;
 import java.util.List;
@@ -53,9 +58,13 @@ public class MainActivity extends AppCompatActivity implements ButtonFragment.Bu
     SunFragment sun;
     MoonFragment moon;
     WeatherMenuFragment wmf;
+    CityInfoFragment cif;
+    AdditionalInfoFragment aif;
+    FutureFragment ff;
     Context context;
     boolean lastModal;
     boolean allowInit;
+    boolean isOnline = false;
     String path = Environment.getExternalStorageDirectory().getAbsolutePath() + "/astroData";
     String m_Text = "";
     String m_Text1 = "";
@@ -65,6 +74,8 @@ public class MainActivity extends AppCompatActivity implements ButtonFragment.Bu
     double lng = 19.455983;
     long time = 1000;
     JSONArray favJSON;
+    JSONArray forecast;
+    List<String> forecastList;
 
     File rootDir;
     File favXML;
@@ -90,6 +101,8 @@ public class MainActivity extends AppCompatActivity implements ButtonFragment.Bu
     }
 
     private void checkNetConnection(){
+        choosenCity = "Lodz";
+        choosenWOEID = "505120";
         Thread t = new Thread() {
 
             @Override
@@ -109,14 +122,20 @@ public class MainActivity extends AppCompatActivity implements ButtonFragment.Bu
                                                 Toast.LENGTH_LONG).show();
 
                                         loadFav();
+                                        isOnline = true;
+
+                                        fetchData(choosenWOEID);
 
                                         lastModal = true;
                                         allowInit = false;
                                     }
                                 }else {
                                     if(lastModal || allowInit){
-                                        Toast.makeText(context, "No internet connection",
-                                                Toast.LENGTH_LONG).show();
+//                                        Toast.makeText(context, "No internet connection",
+//                                                Toast.LENGTH_LONG).show();
+
+                                        fetchDataFromLocal(choosenWOEID);
+                                        isOnline = false;
                                         lastModal = false;
                                         allowInit = false;
                                     }
@@ -135,10 +154,10 @@ public class MainActivity extends AppCompatActivity implements ButtonFragment.Bu
 
 
     private void loadFav(){
-        deleteFile("fav.json");
+
         checkIfFileExists("fav.json");
      //   expandJson("fav.json","xzzzx","xx");
-        wmf.cityName.setText(readFromFile("fav.json"));
+
 
 
            // overwriteFile("fav.json","asdasdasd");
@@ -199,6 +218,27 @@ public class MainActivity extends AppCompatActivity implements ButtonFragment.Bu
     }
 
 
+    private String readFromFileLocal(String filename){
+        try {
+            String msg;
+            FileInputStream fin = openFileInput(filename);
+            InputStreamReader isr = new InputStreamReader(fin);
+            BufferedReader bis = new BufferedReader(isr);
+            StringBuffer sb = new StringBuffer();
+            while((msg = bis.readLine())!=null){
+                sb.append(msg + '\n');
+            }
+
+            return sb.toString();
+        } catch (Exception e) {
+            Toast.makeText(this, filename,
+                    Toast.LENGTH_LONG).show();
+            e.printStackTrace();
+            return "noFile";
+
+        }
+    }
+
     private String readFromFile(String filename){
         try {
             String msg;
@@ -233,6 +273,7 @@ public class MainActivity extends AppCompatActivity implements ButtonFragment.Bu
                                 java.util.Date noteTS = Calendar.getInstance().getTime();
                                 String time = "hh:mm:ss";
                                 timeLocalization.currentTime.setText(DateFormat.format(time, noteTS));
+                                cif.time.setText(DateFormat.format(time, noteTS));
 
                             }
                         });
@@ -251,7 +292,243 @@ public class MainActivity extends AppCompatActivity implements ButtonFragment.Bu
         sun = (SunFragment) getSupportFragmentManager().findFragmentById(R.id.sun);
         moon = (MoonFragment) getSupportFragmentManager().findFragmentById(R.id.moon);
         wmf = (WeatherMenuFragment) getSupportFragmentManager().findFragmentById(R.id.weatherMenu);
-        wmf.cityName.setText("Łodź");
+        cif = (CityInfoFragment) getSupportFragmentManager().findFragmentById(R.id.cityInfo);
+        aif = (AdditionalInfoFragment)  getSupportFragmentManager().findFragmentById(R.id.addInfo);
+        ff = (FutureFragment)  getSupportFragmentManager().findFragmentById(R.id.ff);
+
+
+
+    }
+
+    private void fetchDataFromLocal(String woeid){
+        cif.name.setText(choosenCity);
+        try {
+
+
+            JSONObject res = new JSONObject(readFromFileLocal(woeid+".json"));
+
+
+
+            JSONObject query = res.getJSONObject("query");
+            JSONObject result = query.getJSONObject("results");
+            JSONObject channel = result.getJSONObject("channel");
+
+            JSONObject atmo = channel.getJSONObject("atmosphere");
+            cif.pressure.setText(atmo.getString("pressure"));
+
+            JSONObject wind = channel.getJSONObject("wind");
+
+            aif.wind.setText("sila: "+wind.getString("speed")+" kierunek: "+wind.getString("direction"));
+
+            JSONObject atmosphere = channel.getJSONObject("atmosphere");
+
+            aif.hum.setText(atmosphere.getString("humidity"));
+
+            aif.see.setText(atmosphere.getString("visibility"));
+
+            JSONObject item = channel.getJSONObject("item");
+
+            JSONObject condition = item.getJSONObject("condition");
+            cif.temp.setText(condition.getString("temp"));
+
+            cif.lat.setText(item.getString("lat"));
+            cif.lng.setText(item.getString("long"));
+
+            forecast = item.getJSONArray("forecast");
+
+            forecastList = new ArrayList<String>();
+            JSONArray jArray = forecast;
+            if (jArray != null) {
+                for (int i=0;i<jArray.length();i++){
+                    try {
+                        forecastList.add(jArray.getString(i));
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+
+            String cityinfos = forecastList.get(0);
+            ff.linlay.removeAllViews();
+            int count = 0;
+            for(String el : forecastList){
+                if(count != 0){
+
+                    JSONObject json = new JSONObject(el);
+
+
+
+                    TextView date = new TextView(context);
+                    date.setText(json.getString("date"));
+                    date.setGravity(Gravity.CENTER);
+                    date.setBackgroundColor(Color.DKGRAY);
+
+
+
+
+                    TextView high = new TextView(context);
+                    high.setText("high: "+json.getString("high"));
+                    high.setGravity(Gravity.CENTER);
+
+                    TextView low = new TextView(context);
+                    low.setText("low: "+json.getString("low"));
+                    low.setGravity(Gravity.CENTER);
+
+                    ImageView img = new ImageView(context);
+                    Picasso.with(context).load("http://l.yimg.com/a/i/us/we/52/"+json.getString("code")+".gif").into(img);
+
+                    TextView text = new TextView(context);
+                    text.setText(json.getString("text"));
+                    text.setGravity(Gravity.CENTER);
+
+                    ff.linlay.addView(date);
+                    ff.linlay.addView(high);
+                    ff.linlay.addView(low);
+                    ff.linlay.addView(img);
+                    ff.linlay.addView(text);
+                }
+
+                count++;
+
+            }
+
+            JSONObject cityinfosjson = new JSONObject(cityinfos);
+            Picasso.with(context).load("http://l.yimg.com/a/i/us/we/52/"+cityinfosjson.getString("code")+".gif").into(cif.image);
+
+            cif.info.setText(cityinfosjson.getString("text"));
+
+
+
+        } catch (JSONException e) {
+
+
+            e.printStackTrace();
+
+        }
+
+    }
+
+    private void fetchData(final String woeid){
+        cif.name.setText(choosenCity);
+
+
+        String url = "https://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20weather.forecast%20where%20woeid="+woeid+"%20and%20u=%22c%22&format=json";
+        AsyncHttpClient client = new AsyncHttpClient();
+        client.get(url, new AsyncHttpResponseHandler() {
+            @Override
+            public void onSuccess(int statusCode, Header[] headers, byte[] responseBody) {
+                if (responseBody == null) { /* empty response, alert something*/ return; }
+                //success response, do something with it!
+                String response = new String(responseBody);
+
+                overwriteFile(woeid+".json",response);
+
+                try {
+                    JSONObject res = new JSONObject(response);
+                    JSONObject query = res.getJSONObject("query");
+                    JSONObject result = query.getJSONObject("results");
+                    JSONObject channel = result.getJSONObject("channel");
+
+                    JSONObject atmo = channel.getJSONObject("atmosphere");
+                    cif.pressure.setText(atmo.getString("pressure"));
+
+                    JSONObject wind = channel.getJSONObject("wind");
+
+                    aif.wind.setText("sila: "+wind.getString("speed")+" kierunek: "+wind.getString("direction"));
+
+                    JSONObject atmosphere = channel.getJSONObject("atmosphere");
+
+                    aif.hum.setText(atmosphere.getString("humidity"));
+
+                    aif.see.setText(atmosphere.getString("visibility"));
+
+                    JSONObject item = channel.getJSONObject("item");
+
+                    JSONObject condition = item.getJSONObject("condition");
+                    cif.temp.setText(condition.getString("temp"));
+
+                    cif.lat.setText(item.getString("lat"));
+                    cif.lng.setText(item.getString("long"));
+
+                    forecast = item.getJSONArray("forecast");
+
+                    forecastList = new ArrayList<String>();
+                    JSONArray jArray = forecast;
+                    if (jArray != null) {
+                        for (int i=0;i<jArray.length();i++){
+                            try {
+                                forecastList.add(jArray.getString(i));
+                            } catch (JSONException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }
+
+                    String cityinfos = forecastList.get(0);
+                    ff.linlay.removeAllViews();
+                    int count = 0;
+                    for(String el : forecastList){
+                        if(count != 0){
+
+
+
+                            JSONObject json = new JSONObject(el);
+
+
+
+                            TextView date = new TextView(context);
+                            date.setText(json.getString("date"));
+                            date.setGravity(Gravity.CENTER);
+                            date.setBackgroundColor(Color.DKGRAY);
+
+
+
+
+                            TextView high = new TextView(context);
+                            high.setText("high: "+json.getString("high"));
+                            high.setGravity(Gravity.CENTER);
+
+                            TextView low = new TextView(context);
+                            low.setText("low: "+json.getString("low"));
+                            low.setGravity(Gravity.CENTER);
+
+                            ImageView img = new ImageView(context);
+                            Picasso.with(context).load("http://l.yimg.com/a/i/us/we/52/"+json.getString("code")+".gif").into(img);
+
+                            TextView text = new TextView(context);
+                            text.setText(json.getString("text"));
+                            text.setGravity(Gravity.CENTER);
+
+                            ff.linlay.addView(date);
+                            ff.linlay.addView(high);
+                            ff.linlay.addView(low);
+                            ff.linlay.addView(img);
+                            ff.linlay.addView(text);
+                        }
+
+                        count++;
+
+                    }
+
+                    JSONObject cityinfosjson = new JSONObject(cityinfos);
+                    Picasso.with(context).load("http://l.yimg.com/a/i/us/we/52/"+cityinfosjson.getString("code")+".gif").into(cif.image);
+
+                    cif.info.setText(cityinfosjson.getString("text"));
+
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+
+
+            }
+
+            @Override
+            public void onFailure(int statusCode, Header[] headers, byte[] responseBody, Throwable error) {
+                if (responseBody == null) { /* empty response, alert something*/ return; }
+                //error response, do something with it!
+                String response = new String(responseBody);
+            }
+        });
 
     }
 
@@ -421,7 +698,34 @@ public class MainActivity extends AppCompatActivity implements ButtonFragment.Bu
 
     @Override
     public void refreshWeatherClick() {
+        if(isOnline){
+            fetchData(choosenWOEID);
+        } else{
+            fetchDataFromLocal(choosenWOEID);
+        }
 
+    }
+
+    private void createLocalWeatherFile( String woeid){
+        final String cpy = woeid;
+        String url = "https://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20weather.forecast%20where%20woeid="+woeid+"%20and%20u=%22c%22&format=json";
+        AsyncHttpClient client = new AsyncHttpClient();
+        client.get(url, new AsyncHttpResponseHandler() {
+            @Override
+            public void onSuccess(int statusCode, Header[] headers, byte[] responseBody) {
+                String response = new String(responseBody);
+
+                overwriteFile(cpy+".json",response);
+
+
+            }
+            @Override
+            public void onFailure(int statusCode, Header[] headers, byte[] responseBody, Throwable
+                    error)
+            {
+
+            }
+        });
     }
 
     private boolean validateInputNewCity(String msg){
@@ -470,6 +774,11 @@ public class MainActivity extends AppCompatActivity implements ButtonFragment.Bu
                                     String placename = place.getString("name");
                                     String woeid = place.getString("woeid");
                                     expandJson("fav.json",placename,woeid);
+
+
+                                    createLocalWeatherFile(woeid);
+
+
                                     Toast.makeText(context, placename+" zostal dodany",Toast.LENGTH_LONG).show();
                                 } else {
                                     Toast.makeText(context, "Nie znaleziono miasta "+msgCpy,Toast.LENGTH_LONG).show();
@@ -562,6 +871,13 @@ public class MainActivity extends AppCompatActivity implements ButtonFragment.Bu
                        choosenCity = key;
                         try {
                             choosenWOEID = json.getString(key);
+
+                            if(isOnline){
+                                fetchData(choosenWOEID);
+                            } else {
+                                fetchDataFromLocal(choosenWOEID);
+                            }
+
                         } catch (JSONException e) {
                             e.printStackTrace();
                         }
